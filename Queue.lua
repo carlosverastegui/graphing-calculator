@@ -1,4 +1,6 @@
 -- Testing
+-- Adding even more stuff
+-- Maybe just an extra line or two
 Queue = {
 	new = function()
 		return setmetatable({}, Queue)
