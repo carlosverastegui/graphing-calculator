@@ -2,6 +2,9 @@
 -- Adding even more stuff
 -- Maybe just an extra line or two
 
+-- Hey homies
+-- I'm back
+
 Queue = {
 	new = function()
 		return setmetatable({}, Queue)
