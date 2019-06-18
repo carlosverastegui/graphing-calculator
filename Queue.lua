@@ -2,9 +2,6 @@
 -- Adding even more stuff
 -- Maybe just an extra line or two
 
--- What if I add
--- These extra two lines?
-
 Queue = {
 	new = function()
 		return setmetatable({}, Queue)
@@ -13,6 +10,10 @@ Queue = {
 	isEmpty = function(self)
 		return #self == 0
 	end,
+	
+	-- What if I add a chunk
+	-- Of comments here,
+	-- Would that work?
 	
 	enqueue = function(self, ...)
 		local inputs = {...}
