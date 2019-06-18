@@ -5,6 +5,10 @@
 -- Hey homies
 -- I'm back
 
+-- I'm aslo back
+-- And I am typed incorrectly
+-- Me too
+
 Queue = {
 	new = function()
 		return setmetatable({}, Queue)
@@ -68,3 +72,6 @@ Queue = {
 Queue.__index = Queue
 
 return Queue
+
+-- Don't focus on me
+--I'm not that importnat
