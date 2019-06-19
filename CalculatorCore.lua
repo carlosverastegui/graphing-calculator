@@ -45,7 +45,7 @@ end
 -----------------------------
 --| Local Functions Begin |--
 -----------------------------
-local function connectNodes(firstNode, secondNode, reference, round)
+local function connectNodes(firstNode, secondNode, reference)
 	--Position
 	local firstPosition = firstNode.Position
 	local secondPosition = secondNode.Position
@@ -73,19 +73,19 @@ local function connectNodes(firstNode, secondNode, reference, round)
 	
 	--Rotation
 	local displacement = secondNode.AbsolutePosition - firstNode.AbsolutePosition
-    local rotation = math.atan2(displacement.Y , displacement.X)
+    	local rotation = math.atan2(displacement.Y , displacement.X)
 	
 	local newEdge = edge:Clone()
 	newEdge.Position = UDim2.new(newPosition.X, 0, newPosition.Y, 0)
-	newEdge.Size = UDim2.new(newSize, 0, 0, 2)
+	newEdge.Size = UDim2.new(newSize, 0, 0, 3)
 	newEdge.Rotation = math.deg(rotation)
-	newEdge.Name = "Edge" .. round
+	newEdge.Name = "Edge"
 	newEdge.Parent = reference
 end
 
-local function createEdges(amount, container, storage)
+local function createEdges(container, storage)
 	for index = 1, #storage - 1 do
-		connectNodes(storage[index], storage[index + 1], container, index)
+		connectNodes(storage[index], storage[index + 1], container)
 	end
 	
 	return true
@@ -102,8 +102,8 @@ end
 local function createNodes(amount, container)
 	local abscissa = 0
 	
-	for index = 0, math.ceil(amount / 2) do
-		local x = ((20 / math.ceil(amount / 2)) * index) - 10
+	for index = 0, math.ceil(amount / 3) do
+		local x = ((20 / math.ceil(amount / 3)) * index) - 10
 		local expression = string.gsub(formula, "x", x)
 		
 		local expressionParser = PARSER_MODULE.new()
@@ -113,12 +113,11 @@ local function createNodes(amount, container)
 			return false
 		end
 		
-		y = math.clamp(y, -10.05, 10.05)
-		--if ((y >= -10.05) and (y <= 10.05)) then
-			local node = initializeNode((abscissa / amount), ((.05 * y) + .5), container)
-		--end
+		local newy = math.clamp(y, -10.05, 10.05)
+		print("Old: " .. y .. " New: " .. newy) 
+		local node = initializeNode((abscissa / amount), ((.05 * newy) + .5), container)
 		
-		abscissa = abscissa + 2
+		abscissa = abscissa + 3
 	end
 	
 	return true
@@ -155,7 +154,7 @@ local function displayFunction()
 	end
 	
 	print("Nodes created. Creating edges...")
-	if not (createEdges((GRAPH_SIZE_X - 1), EDGES_FOLDER, orderedPairs)) then
+	if not (createEdges(EDGES_FOLDER, orderedPairs)) then
 		return false
 	end
 	

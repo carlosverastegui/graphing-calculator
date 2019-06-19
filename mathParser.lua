@@ -73,6 +73,12 @@ local function parseExpression(tokenizedExpression)
 			
 			operatorStack:pop()	
 		else
+			if (token == "e") then
+				outputQueue:enqueue("2.71828")
+			elseif (token == "pi") then
+				outputQueue:enqueue("3.14159")
+			end
+
 			if (operatorStack:isEmpty()) then
 				operatorStack:push(token)
 			else
