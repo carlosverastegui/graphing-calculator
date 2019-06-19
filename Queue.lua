@@ -1,14 +1,3 @@
--- Testing
--- Adding even more stuff
--- Maybe just an extra line or two
-
--- Hey homies
--- I'm back
-
--- I'm aslo back
--- And I am typed incorrectly
--- Me too
-
 Queue = {
 	new = function()
 		return setmetatable({}, Queue)
@@ -17,10 +6,6 @@ Queue = {
 	isEmpty = function(self)
 		return #self == 0
 	end,
-	
-	-- What if I add a chunk
-	-- Of comments here,
-	-- Would that work?
 	
 	enqueue = function(self, ...)
 		local inputs = {...}
@@ -72,6 +57,3 @@ Queue = {
 Queue.__index = Queue
 
 return Queue
-
--- Don't focus on me
---I'm not that importnat
