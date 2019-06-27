@@ -37,10 +37,10 @@ Stack = {
 		local str = "["
 		
 		for _, child in ipairs(self) do
-			str = str .. ", " .. tostring(child)
+			str = str .. tostring(child) .. ", "
 		end
 		
-		return str .. "]"
+		return string.sub(str, 0, #str - 2) .. "]"
 	end,
 	
 	toArray = function(self)
