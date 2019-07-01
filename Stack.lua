@@ -40,7 +40,7 @@ Stack = {
 			str = str .. tostring(child) .. ", "
 		end
 		
-		return string.sub(str, 0, #str - 2) .. "]"
+		return str:sub(0, #str - 2) .. "]"
 	end,
 	
 	toArray = function(self)

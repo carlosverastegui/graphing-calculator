@@ -1,15 +1,15 @@
-Stack = require(script.StackDataStructure)
-Queue = require(script.QueueDataStructure)
+Stack = require(script.Stack)
+Queue = require(script.Queue)
 
-local function evaluateExpression(parsedExpression)
+local function evaluateEquation(parsedEquation)
 	local evaluationStack = Stack:new()
 	
-	for _, token in pairs(parsedExpression) do
+	for _, token in pairs(parsedEquation) do
 		if (tonumber(token) ~= nil) then
 			evaluationStack:push(token)
 		elseif (string.match(token, "^[%+%-%*%/%^%(%)]") ~= nil) then
-			local firstOperand = evaluationStack:pop()
-			local secondOperand = evaluationStack:pop()
+			local firstOperand = tonumber(evaluationStack:pop())
+			local secondOperand = tonumber(evaluationStack:pop())
 			
 			if (token == "-") then
 				evaluationStack:push(secondOperand - firstOperand)
@@ -48,7 +48,7 @@ local function evaluateExpression(parsedExpression)
 	return tonumber(evaluationStack:pop())
 end
 
-local function parseExpression(tokenizedExpression)
+local function parseEquation(tokenizedEquation)
 	local precedence = {
 		["[a-z]+"] = 5,
 		["^"] = 4,
@@ -61,7 +61,7 @@ local function parseExpression(tokenizedExpression)
 	local operatorStack = Stack:new()
 	local outputQueue = Queue:new()
 	
-	for _, token in pairs(tokenizedExpression) do
+	for _, token in pairs(tokenizedEquation) do
 		if (tonumber(token) ~= nil) then
 			outputQueue:enqueue(token)
 		elseif (token == "(") then
@@ -73,12 +73,6 @@ local function parseExpression(tokenizedExpression)
 			
 			operatorStack:pop()	
 		else
-			if (token == "e") then
-				outputQueue:enqueue("2.71828")
-			elseif (token == "pi") then
-				outputQueue:enqueue("3.14159")
-			end
-
 			if (operatorStack:isEmpty()) then
 				operatorStack:push(token)
 			else
@@ -108,12 +102,10 @@ local function parseExpression(tokenizedExpression)
 		outputQueue:enqueue(operatorStack:pop())
 	end
 	
-	return evaluateExpression(outputQueue:toArray())
+	return outputQueue:toArray()
 end
 
-local function tokenizeExpression(expression)
-    local target = string.lower(string.gsub(expression, "%s+", ""))
-    
+local function tokenizeEquation(equation, val)
     local debounce = false
     local tokens = {}
     
@@ -124,65 +116,123 @@ local function tokenizeExpression(expression)
     local sub = string.sub
 
     while (not debounce) do
-        if (match(target, "^[-]?[0-9]*%.?[0-9]*") ~= "") then
-            local token = match(target, "^[-]?[0-9]*%.?[0-9]*")
+        if (match(equation, "^[-]?[0-9]*%.?[0-9]*") ~= "") then
+            local token = match(equation, "^[-]?[0-9]*%.?[0-9]*")
             
-            if (tonumber(tokens[#tokens]) ~= nil) and (match(target, "^%-") ~= nil) then
-               token = match(target, "^%-")
+            if (tonumber(tokens[#tokens]) ~= nil) and (match(equation, "^%-") ~= nil) then
+               token = match(equation, "^%-")
                insert(tokens, token)
                 
-               if (len(token) == len(target)) then
+               if (len(token) == len(equation)) then
                    debounce = true
                end
             
-               target = sub(target, len(token) + 1, len(target))
+               equation = sub(equation, len(token) + 1, len(equation))
             else
                insert(tokens, token)
             
-               if (len(token) == len(target)) then
+               if (len(token) == len(equation)) then
                    debounce = true
                end
             
-               target = sub(target, len(token) + 1, len(target))
+               equation = sub(equation, len(token) + 1, len(equation))
             end
-        elseif (match(target, "^[%+%-%*%/%^%(%)]") ~= nil) then
-            local token = match(target, "^[%+%-%*%/%^%(%)]")
+        elseif (match(equation, "^[%+%-%*%/%^%(%)]") ~= nil) then
+            local token = match(equation, "^[%+%-%*%/%^%(%)]")
             insert(tokens, token)
             
-            if (len(token) == len(target)) then
+            if (len(token) == len(equation)) then
                 debounce = true
             end
             
-            target = sub(target, len(token) + 1, len(target))
-        elseif (match(target, "^[a-z]+") ~= nil) then
-            local token = match(target, "^[a-z]+")
-            insert(tokens, token)
+            equation = sub(equation, len(token) + 1, len(equation))
+        elseif (match(equation, "^[a-z]+") ~= nil) then
+            local token = match(equation, "^[a-z]+")
+
+			if (token == "x") then
+				insert(tokens, val)
+			elseif (token == "e") then
+				if (tokens[#tokens] == "-") then
+					tokens[#tokens] = "-2.71828"
+				else
+					insert(tokens, "2.71828")
+				end
+			elseif (token == "pi") then
+				insert(tokens, "3.14159")
+			else
+				insert(tokens, token)
+			end
             
-            if (len(token) == len(target)) then
+            if (len(token) == len(equation)) then
                 debounce = true
             end
             
-            target = sub(target, len(token) + 1, len(target))
+            equation = sub(equation, len(token) + 1, len(equation))
         else
-			script.Parent.ErrorOccured:Fire("Invalid character in the input!")
-			return false
+			assert(false, "Invalid characters in input!")
         end
     end
     
-    return parseExpression(tokens)
+    return tokens
 end
 
 Parser = {
-	new = function()
-		return setmetatable({}, Parser)
+	new = function(expression, variable)
+		local newParser = setmetatable({}, Parser)
+		
+		newParser.Expression = (expression == nil) and "" or tostring(expression)
+		newParser.Variable = (variable == nil) and "x" or tostring(variable)
+
+		return newParser
+	end,
+
+	getExpression = function(self)
+		return self.Expression
+	end,
+
+	setExpression = function(self, expression)
+		self.Expression = tostring(expression)
+	end,
+
+	getVariable = function(self)
+		return self.Variable
+	end,
+
+	setVariable = function(self, variable)
+		self.Expression = string.gsub(self.Expression, self.Variable, tostring(variable))
+		self.Variable = tostring(variable)
 	end,
 	
-	parse = function(self, expression)
-		return tokenizeExpression(expression)
+	parse = function(self, value)
+		if (self.Expression == "") then
+			return assert(false, "Attempting to parse empty expression!")
+		elseif (type(value) ~= "number") then
+			return assert(false, "Expected number for value, got " .. type(value) .. "!")
+		end
+
+		if (tonumber(self.Expression)) then
+			return tonumber(self.Expression)
+		end
+
+		local value = tostring(value)
+		local equation = string.lower(string.gsub(self.Expression, "%s+", ""))
+	
+		local returned, data = pcall(function()
+			local tokenized = tokenizeEquation(equation, value)
+			local parsed = parseEquation(tokenized)
+			local evaluated = evaluateEquation(parsed)
+		
+			return tonumber(evaluated)
+		end)
+		
+		return data
+	end,
+	
+	toString = function(self)
+		return ("Expression: " .. self.Expression .. "\tVariable: " .. self.Variable)
 	end
 }
 
 Parser.__index = Parser
 
 return Parser
-
