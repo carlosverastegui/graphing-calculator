@@ -1,5 +1,5 @@
 --[[
-	// File Name: Derivative
+	// File Name: Derivative.lua
 	// Written by: Carlos Verastegui
 	// Description: Sub-class for calculating numerical derivatives using the difference quotient
 --]]
@@ -30,17 +30,19 @@ local function differenceQuotient(func, var)
 	local step = 2
 	local answer = 0
 	
+	-- Create a 10x10 Neville tableau
 	local tableau = createMultidimensionalArray()
 	tableau[1][1] = ((func:compute(var + step) - func:compute(var - step)) / (2 * step))
 	
 	for col = 2, 10 do
 		local fac = 1.96
 		
+		-- Compute new values of the derivative using smaller steps each column
 		step = step / 1.4
 		tableau[1][col] = ((func:compute(var + step) - func:compute(var - step)) / (2 * step))
 		
 		for row = 2, col do
-			tableau[row][col] = (fac*tableau[row - 1][col] - tableau[row - 1][col - 1]) / (fac - 1)
+			tableau[row][col] = (fac * tableau[row - 1][col] - tableau[row - 1][col - 1]) / (fac - 1)
 			
 			fac = fac * 1.96
 			errTolerance = math.max(tableau[row][col] - tableau[row - 1][col], 
@@ -52,7 +54,8 @@ local function differenceQuotient(func, var)
 			end
 		end
 		
-		if (math.abs(tableau[col][col] - tableau[col - 1][col - 1]) >= 2*err) then
+		-- Break if our recent computation exceeds error threshold
+		if (math.abs(tableau[col][col] - tableau[col - 1][col - 1]) >= 2 * err) then
 			break
 		end
 	end
@@ -77,6 +80,8 @@ Derivative = {
 	
 	-- Returns the numerical derivative at the specified point
 	differentiate = function(self, abscissa)
+		
+		-- Sanity checking
 		if (type(abscissa) ~= "number") then
 			return assert(false, "X-value must be a number!")
 		end
@@ -85,6 +90,7 @@ Derivative = {
 			return assert(false, "Empty expression!")
 		end
 		
+		-- Safely compute the numerical derivative
 		local returned, data = pcall(function()
 			return differenceQuotient(self, abscissa)
 		end)
@@ -94,6 +100,8 @@ Derivative = {
 	
 	-- Returns the equation of the tangent line
 	tangentLine = function(self, abscissa, derivative)
+		
+		-- Sanity checking
 		if (type(derivative) ~= "number") then 
 			return assert(false, "Derivative must be a number!")
 		end
@@ -106,6 +114,7 @@ Derivative = {
 			return assert(false, "Empty expression!")
 		end
 		
+		-- Safely compute the equation of the tangent line
 		local returned, data = pcall(function()
 			local yIntercept = -(derivative * abscissa) + self:compute(abscissa)
 			return tostring(derivative) .. "*" .. self.Variable .. "+" .. tostring(yIntercept)
