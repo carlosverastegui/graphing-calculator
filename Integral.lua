@@ -1,5 +1,5 @@
 --[[
-	// File Name: Integral
+	// File Name: Integral.lua
 	// Written by: Carlos Verastegui
 	// Description: Sub-class for computing the definite integral using Gauss-Legendre quadrature
 --]]
@@ -59,6 +59,8 @@ Integral = {
 	
 	-- Returns the definite integral at the specified interval
 	integrate = function(self, lower, upper)
+		
+		-- Sanity checking
 		if (type(lower) ~= "number") or (type(upper) ~= "number") then
 			return assert(false, "Invalid bounds!")
 		end
@@ -71,6 +73,7 @@ Integral = {
 			return assert(false, "Empty expression!")
 		end
 		
+		-- Safely compute the definite integral
 		local returned, data = pcall(function()
 			return gaussLegendre(self, lower, upper)
 		end)
