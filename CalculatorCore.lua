@@ -1,13 +1,17 @@
+--[[
+	// File Name: CalculatorCore.lua
+	// Written by: Carlos Verastegui
+	// Description: Main script that handles all calculator events
+--]]
+
 -----------------------------
 --| Local Constants Begin |--
 -----------------------------
 local BACKGROUND = script.Parent:WaitForChild("Background")
+local FUNCTION_MODULE = require(script.Function)
 
-local PARSER_MODULE = require(script.Parser)
 local INTERCEPT_MODULE = require(script.Intercept)
-
-local MINIMUM_MODULE = require(script.Minimum)
-local MAXIMUM_MODULE = require(script.Maximum)
+local OPTIMIZE_MODULE = require(script.Optimize)
 
 local DERIVATIVE_MODULE = require(script.Derivative)
 local INTEGRAL_MODULE = require(script.Integral)
@@ -43,19 +47,25 @@ local connections = {}
 local formula = ""
 
 local node = Instance.new("Frame") do
-	node.Size = UDim2.new(0, 2, 0, 2)
+	node.Size = UDim2.new(0, 1, 0, 1)
 	node.Name = "Node"
-	node.BackgroundColor3 = Color3.new(1, 0, 0)
+	node.BackgroundColor3 = Color3.new(0, 0, 0)
 	node.BorderSizePixel = 0
 	node.AnchorPoint = Vector2.new(0.5, 0.5)
-	node.ZIndex = 2
+	
 end
 
 local edge = Instance.new("Frame") do
-	--edge.Name = "Edge"
-	edge.BackgroundColor3 = Color3.new(0, 0, 0)
+	edge.Name = "Edge"
 	edge.BorderSizePixel = 0
 	edge.AnchorPoint = Vector2.new(0.5, 0.5)
+end
+
+local shader = Instance.new("Frame") do
+	shader.Name = "Shader"
+	shader.BorderSizePixel = 0
+	shader.BackgroundTransparency = 0.25
+	shader.BackgroundColor3 = Color3.new(1, 0, 0)
 end
 
 local point = Instance.new("ImageLabel") do
@@ -64,6 +74,7 @@ local point = Instance.new("ImageLabel") do
 	point.BackgroundTransparency = 1
 	point.Size = UDim2.new(0, 10, 0, 10)
 	point.Image = "rbxassetid://142700369"
+	point.ZIndex = 2
 end
 -----------------------------
 ---| Local Variables End |---
@@ -83,7 +94,7 @@ local function removeAllDescendants(...)
 end
 
 local function resetApplications(command)
-	if (type(command) == "boolean") and (command) then
+	if (command) and (type(command) == "boolean") then
 		for _, child in pairs(APPLICATION_PROMPTS:GetChildren()) do
 			child.Visible = false
 		end
@@ -161,7 +172,7 @@ local function displayError(message, ...)
 	return false
 end
 
-local function connectNodes(firstNode, secondNode, reference)
+local function connectNodes(firstNode, secondNode, reference, isApplication)
 	--Position
 	local firstPosition = firstNode.Position
 	local secondPosition = secondNode.Position
@@ -192,31 +203,37 @@ local function connectNodes(firstNode, secondNode, reference)
    	local rotation = math.atan2(displacement.Y , displacement.X)
 	
 	local newEdge = edge:Clone()
+	newEdge.ZIndex = isApplication and 1 or 2
+	
 	newEdge.Position = UDim2.new(newPosition.X, 0, newPosition.Y, 0)
+	newEdge.BackgroundColor3 = isApplication and Color3.new(0.3, 0.3, 0.3) or Color3.new(0, 0, 0)
+	
+	newEdge.BackgroundTransparency = isApplication and .25 or 0
 	newEdge.Size = UDim2.new(newSize, 0, 0, 2)
+	
 	newEdge.Rotation = math.deg(rotation)
 	newEdge.Parent = reference
 end
 
-local function createEdges(container, storage)
+local function createEdges(container, storage, isApplication)
 	for index = 1, #storage - 1 do
-		connectNodes(storage[index], storage[index + 1], container, index)
+		connectNodes(storage[index], storage[index + 1], container, isApplication)
 	end
 	
 	return true
 end
 
-local function createNodes(amount, container)
+local function createNodes(expression, amount, container)
 	local abscissa = 0
 	
-	for index = 0, math.ceil(amount / 3) do
-		local x = ((20 / math.ceil(amount / 3)) * index) - 10
+	for index = 0, math.ceil(amount / 1) do
+		local x = ((20 / math.ceil(amount / 1)) * index) - 10
 		
-		local func = PARSER_MODULE.new(formula)
+		local f = FUNCTION_MODULE.new(expression)
 		local y = 0
 		
 		local returned, data = pcall(function()
-			return func:parse(x)
+			return f:compute(x)
 		end)
 		
 		if (returned) then
@@ -230,14 +247,73 @@ local function createNodes(amount, container)
 		end
 		
 		local scaledX = (abscissa / amount)
-		local scaledY = ((.05 * math.clamp(y, -10.05, 10.05)) + .5)
+		local scaledY = ((.05 * math.clamp(y, -10.1, 10.1)) + .5)
 		
 		local pointNode = node:Clone()
-		pointNode.Name = "Node" .. index + 1
 		pointNode.Position = UDim2.new(scaledX, 0, 1 - scaledY, 0)
 		pointNode.Parent = container
 		
-		abscissa = abscissa + 3
+		abscissa = abscissa + 1
+	end
+	
+	return true
+end
+
+local function shadeUnderFunction(lower, upper)
+	local scaledLower = ((.05 * lower) + .5)
+	local scaledUpper = ((.05 * upper) + .5)
+	
+	local distance = scaledUpper - scaledLower
+	local trueDistance = distance * GRAPH_FRAME.AbsoluteSize.X
+	
+	local abscissa = 0
+	
+	for index = 1, trueDistance do
+		local f = FUNCTION_MODULE.new(formula)
+		local newShade = shader:Clone()
+		
+		local x = (((upper - lower) / trueDistance) * (index - 1)) + lower
+		local y = f:compute(x)
+		
+		newShade.Size = UDim2.new(0, 1, 0.5 - ((.05 * math.clamp(y, -10.1, 10.1)) + .5), 0)
+		newShade.Position = UDim2.new(scaledLower, abscissa, 0.5, 0)
+		
+		newShade.Parent = GRAPH_FRAME.Drawing.Markers
+		abscissa = abscissa + 1
+	end
+end
+
+local function displayApplication(expression)
+	local DRAWING_FOLDER = GRAPH_FRAME.Drawing
+	local MARKER_FOLDER = DRAWING_FOLDER.Markers
+	
+	local GRAPH_SIZE_X = GRAPH_FRAME.AbsoluteSize.X
+	local orderedPairs = {}
+	
+	for _, child in pairs(MARKER_FOLDER:GetChildren()) do
+		child:Destroy()
+	end
+	
+	for index = 0, #orderedPairs do
+		orderedPairs[index] = nil
+	end
+	
+	if (createNodes(expression, GRAPH_SIZE_X, MARKER_FOLDER)) then
+		for _, child in pairs(MARKER_FOLDER:GetChildren()) do
+			table.insert(orderedPairs, child)
+		end
+	else
+		return false
+	end
+	
+	if (createEdges(MARKER_FOLDER, orderedPairs, true)) then
+		for _, child in pairs(MARKER_FOLDER:GetChildren()) do
+			if (child.Name == "Node") then
+				child:Destroy()
+			end
+		end
+	else
+		return false
 	end
 	
 	return true
@@ -247,45 +323,31 @@ local function displayFunction()
 	local orderedPairs = {}
 	
 	local DRAWING_FOLDER = GRAPH_FRAME.Drawing
-	local MARKERS_FOLDER = DRAWING_FOLDER.Markers
-	
 	local NODES_FOLDER = DRAWING_FOLDER.Nodes
+	
 	local EDGES_FOLDER = DRAWING_FOLDER.Edges
-	
 	local GRAPH_SIZE_X = GRAPH_FRAME.AbsoluteSize.X
-	local GRAPH_SIZE_Y = GRAPH_FRAME.AbsoluteSize.Y
 	
-	for _, edge in pairs(EDGES_FOLDER:GetChildren()) do
-		edge:Destroy()
-	end
-		
-	for _, marker in pairs(MARKERS_FOLDER:GetChildren()) do
-		marker:Destroy()
-	end
-		
+	resetGraph(false)
+	
 	for index = 0, #orderedPairs do
 		orderedPairs[index] = nil
 	end
 	
-	if not (createNodes((GRAPH_SIZE_X), NODES_FOLDER)) then
+	if (createNodes(formula, GRAPH_SIZE_X, NODES_FOLDER)) then
+		for _, child in pairs(NODES_FOLDER:GetChildren()) do
+			table.insert(orderedPairs, child)
+		end
+	else
 		return false
 	end
 	
-	for _, child in pairs(NODES_FOLDER:GetChildren()) do
-		table.insert(orderedPairs, child)
-	end
-	
-	if not (createEdges(EDGES_FOLDER, orderedPairs)) then
+	if (createEdges(EDGES_FOLDER, orderedPairs)) then
+		for _, child in pairs(NODES_FOLDER:GetChildren()) do
+			child:Destroy()
+		end
+	else
 		return false
-	end
-	
-	--for _, child in pairs(NODES_FOLDER:GetChildren()) do
-	--	child:Destroy()
-	--end
-	
-	do
-		APPLICATION_FRAME.Visible = false
-		INPUT_FRAME.Visible = false
 	end
 	
 	return true
@@ -301,8 +363,6 @@ INTERCEPT_BUTTON.MouseButton1Click:Connect(function()
 	local INTERCEPT_PROMPT = APPLICATION_PROMPTS.Intercept
 	
 	if (resetApplications("Intercept")) then
-		local debounce = true
-		
 		local INPUT_FOLDER = INTERCEPT_PROMPT.Inputs
 		local ENTER_BUTTON = INPUT_FOLDER.EnterButton
 		
@@ -321,10 +381,11 @@ INTERCEPT_BUTTON.MouseButton1Click:Connect(function()
 		end)
 		
 		local enter = ENTER_BUTTON.MouseButton1Click:Connect(function()
-			local interceptCalculator = INTERCEPT_MODULE.new(formula)
+			local intercept = INTERCEPT_MODULE.new(formula)
+			local debounce = true
 			
 			local returned, data = pcall(function()
-				return interceptCalculator:root(lowerBound, upperBound)
+				return intercept:root(tonumber(lowerBound), tonumber(upperBound))
 			end)
 			
 			if (returned) then
@@ -397,11 +458,11 @@ MINIMUM_BUTTON.MouseButton1Click:Connect(function()
 		end)
 		
 		local enter = ENTER_BUTTON.MouseButton1Click:Connect(function()
+			local minimize = OPTIMIZE_MODULE.new(formula, true)
 			local debounce = true
-			-- TODO: Create new Minimum class object
+			
 			local returned, data = pcall(function()
-				-- TODO: Get the minimum of the function
-				return true
+				return minimize:findExtrema(tonumber(lowerBound), tonumber(upperBound))
 			end)
 			
 			if (returned) then
@@ -409,9 +470,10 @@ MINIMUM_BUTTON.MouseButton1Click:Connect(function()
 				MINIMUM_PROMPT.Visible = false
 				
 				removeAllDescendants(GRAPH_FRAME.Drawing.Markers)
+				local scaledY = ((.05 * math.clamp(minimize:compute(tonumber(data)), -10.1, 10.1)) + .5)
 				
 				local marker = point:Clone()
-				marker.Position = UDim2.new(((0.05 * tonumber(data)) + .5), 0, 0.5, 0)
+				marker.Position = UDim2.new(((0.05 * tonumber(data)) + .5), 0, 1 - scaledY, 0)
 				marker.Parent = GRAPH_FRAME.Drawing.Markers
 				
 				for _, connection in pairs(connections) do
@@ -420,14 +482,21 @@ MINIMUM_BUTTON.MouseButton1Click:Connect(function()
 			else
 				if debounce then
 					debounce = false
-				
 					local current = GRAPH_FRAME.Value.Text
-					local _, position = data:find(".*:")
-				
-					GRAPH_FRAME.Value.Text = "Error" .. data:sub(position, #data)
-					wait(1)
-					GRAPH_FRAME.Value.Text = tostring(current)
 					
+					local _, position = data:find(".*:")
+					local err = data:sub(position, #data)
+					
+					if (err == ": Invalid bounds!") then
+						displayError(data, LOWER_BOUND, UPPER_BOUND)
+						wait(1)
+						GRAPH_FRAME.Value.Text = tostring(current)
+					else
+						GRAPH_FRAME.Value.Text = "Error" .. data:sub(position, #data)
+						wait(1)
+						GRAPH_FRAME.Value.Text = tostring(current)
+					end
+				
 					debounce = true
 				end
 			end
@@ -446,9 +515,9 @@ MINIMUM_BUTTON.MouseButton1Click:Connect(function()
 end)
 
 MAXIMUM_BUTTON.MouseButton1Click:Connect(function()
-	local MAXIMUM_PROMPT = APPLICATION_PROMPTS.Minimum
+	local MAXIMUM_PROMPT = APPLICATION_PROMPTS.Maximum
 	
-	if (resetApplications("Minimum")) then
+	if (resetApplications("Maximum")) then
 		local INPUT_FOLDER = MAXIMUM_PROMPT.Inputs
 		local ENTER_BUTTON = INPUT_FOLDER.EnterButton
 		
@@ -467,11 +536,11 @@ MAXIMUM_BUTTON.MouseButton1Click:Connect(function()
 		end)
 		
 		local enter = ENTER_BUTTON.MouseButton1Click:Connect(function()
+			local maximize = OPTIMIZE_MODULE.new(formula, false)
 			local debounce = true
-			-- TODO: Create new Maximum class object
+			
 			local returned, data = pcall(function()
-				-- TODO: Get the maximum of the function
-				return true
+				return maximize:findExtrema(tonumber(lowerBound), tonumber(upperBound))
 			end)
 			
 			if (returned) then
@@ -479,9 +548,10 @@ MAXIMUM_BUTTON.MouseButton1Click:Connect(function()
 				MAXIMUM_PROMPT.Visible = false
 				
 				removeAllDescendants(GRAPH_FRAME.Drawing.Markers)
+				local scaledY = ((.05 * math.clamp(maximize:compute(tonumber(data)), -10.1, 10.1)) + .5)
 				
 				local marker = point:Clone()
-				marker.Position = UDim2.new(((0.05 * tonumber(data)) + .5), 0, 0.5, 0)
+				marker.Position = UDim2.new(((0.05 * tonumber(data)) + .5), 0, 1 - scaledY, 0)
 				marker.Parent = GRAPH_FRAME.Drawing.Markers
 				
 				for _, connection in pairs(connections) do
@@ -490,14 +560,21 @@ MAXIMUM_BUTTON.MouseButton1Click:Connect(function()
 			else
 				if debounce then
 					debounce = false
-				
 					local current = GRAPH_FRAME.Value.Text
-					local _, position = data:find(".*:")
-				
-					GRAPH_FRAME.Value.Text = "Error" .. data:sub(position, #data)
-					wait(1)
-					GRAPH_FRAME.Value.Text = tostring(current)
 					
+					local _, position = data:find(".*:")
+					local err = data:sub(position, #data)
+					
+					if (err == ": Invalid bounds!") then
+						displayError(data, LOWER_BOUND, UPPER_BOUND)
+						wait(1)
+						GRAPH_FRAME.Value.Text = tostring(current)
+					else
+						GRAPH_FRAME.Value.Text = "Error" .. data:sub(position, #data)
+						wait(1)
+						GRAPH_FRAME.Value.Text = tostring(current)
+					end
+				
 					debounce = true
 				end
 			end
@@ -530,22 +607,35 @@ DERIVATIVE_BUTTON.MouseButton1Click:Connect(function()
 		end)
 		
 		local enter = ENTER_BUTTON.MouseButton1Click:Connect(function()
+			local derivative = DERIVATIVE_MODULE.new(formula)
 			local debounce = true
-			-- TODO: Create new Derivative class object
+			
 			local returned, data = pcall(function()
-				-- TODO: Get the derivative of the function
-				return true
+				return derivative:differentiate(tonumber(x))
 			end)
 			
 			if (returned) then
-				GRAPH_FRAME.Value.Text = data
+				local display = data
+				
+				--[[if (string.match(data, "%d+.99999999") ~= nil) then
+					display = tostring(math.floor(tonumber(data)))
+				elseif (string.match(data, "%d+.00000000") ~= nil) then
+					display = tostring(math.ceil(tonumber(data)))
+				end]]--
+				
+				GRAPH_FRAME.Value.Text = display
 				DERIVATIVE_PROMPT.Visible = false
 				
-				removeAllDescendants(GRAPH_FRAME.Drawing.Markers)
+				local yValue = derivative:compute(tonumber(x))
+				local tangentLine = derivative:tangentLine(tonumber(x), tonumber(data))
 				
-				local marker = point:Clone()
-				marker.Position = UDim2.new(((0.05 * tonumber(data)) + .5), 0, 0.5, 0)
-				marker.Parent = GRAPH_FRAME.Drawing.Markers
+				displayApplication(tangentLine, true)
+				
+				if (yValue <= 10) and (yValue >= -10) then
+					local marker = point:Clone()
+					marker.Position = UDim2.new(((0.05 * x) + .5), 0, 1 - ((0.05 * yValue) + .5), 0)
+					marker.Parent = GRAPH_FRAME.Drawing.Markers
+				end
 				
 				for _, connection in pairs(connections) do
 					connection:disconnect()
@@ -553,13 +643,20 @@ DERIVATIVE_BUTTON.MouseButton1Click:Connect(function()
 			else
 				if debounce then
 					debounce = false
-				
 					local current = GRAPH_FRAME.Value.Text
+					
 					local _, position = data:find(".*:")
-				
-					GRAPH_FRAME.Value.Text = "Error" .. data:sub(position, #data)
-					wait(1)
-					GRAPH_FRAME.Value.Text = tostring(current)
+					local err = data:sub(position, #data)
+					
+					if (err == ": X-value must be a number!") then
+						displayError(data, X_VALUE)
+						wait(1)
+						GRAPH_FRAME.Value.Text = tostring(current)
+					else
+						GRAPH_FRAME.Value.Text = "Error" .. data:sub(position, #data)
+						wait(1)
+						GRAPH_FRAME.Value.Text = tostring(current)
+					end
 					
 					debounce = true
 				end
@@ -579,7 +676,7 @@ DERIVATIVE_BUTTON.MouseButton1Click:Connect(function()
 end)
 
 INTEGRAL_BUTTON.MouseButton1Click:Connect(function()
-	local INTEGRAL_PROMPT = APPLICATION_PROMPTS.Minimum
+	local INTEGRAL_PROMPT = APPLICATION_PROMPTS.Integral
 	
 	if (resetApplications("Integral")) then
 		local INPUT_FOLDER = INTEGRAL_PROMPT.Inputs
@@ -600,11 +697,11 @@ INTEGRAL_BUTTON.MouseButton1Click:Connect(function()
 		end)
 		
 		local enter = ENTER_BUTTON.MouseButton1Click:Connect(function()
+			local integral = INTEGRAL_MODULE.new(formula)
 			local debounce = true
-			-- TODO: Create new Maximum class object
+			
 			local returned, data = pcall(function()
-				-- TODO: Get the maximum of the function
-				return true
+				return integral:integrate(tonumber(lowerBound), tonumber(upperBound))
 			end)
 			
 			if (returned) then
@@ -612,10 +709,7 @@ INTEGRAL_BUTTON.MouseButton1Click:Connect(function()
 				INTEGRAL_PROMPT.Visible = false
 				
 				removeAllDescendants(GRAPH_FRAME.Drawing.Markers)
-				
-				local marker = point:Clone()
-				marker.Position = UDim2.new(((0.05 * tonumber(data)) + .5), 0, 0.5, 0)
-				marker.Parent = GRAPH_FRAME.Drawing.Markers
+				shadeUnderFunction(tonumber(lowerBound), tonumber(upperBound))
 				
 				for _, connection in pairs(connections) do
 					connection:disconnect()
@@ -623,14 +717,21 @@ INTEGRAL_BUTTON.MouseButton1Click:Connect(function()
 			else
 				if debounce then
 					debounce = false
-				
 					local current = GRAPH_FRAME.Value.Text
-					local _, position = data:find(".*:")
-				
-					GRAPH_FRAME.Value.Text = "Error" .. data:sub(position, #data)
-					wait(1)
-					GRAPH_FRAME.Value.Text = tostring(current)
 					
+					local _, position = data:find(".*:")
+					local err = data:sub(position, #data)
+					
+					if (err == ": Invalid bounds!") then
+						displayError(data, LOWER_BOUND, UPPER_BOUND)
+						wait(1)
+						GRAPH_FRAME.Value.Text = tostring(current)
+					else
+						GRAPH_FRAME.Value.Text = "Error" .. data:sub(position, #data)
+						wait(1)
+						GRAPH_FRAME.Value.Text = tostring(current)
+					end
+				
 					debounce = true
 				end
 			end
@@ -655,7 +756,7 @@ ENTER_BUTTON.MouseButton1Click:Connect(function()
 	end
 	
 	if (displayFunction()) then
-		APPLICATION_FRAME.Visible = false
+		APPLICATION_FRAME.Visible = true
 		GRAPH_FRAME.Value.Text = "y = " .. formula
 	else
 		resetGraph()
@@ -669,4 +770,4 @@ end)
 -----------------------------------
 -----| Calculator Events End |-----
 -----------------------------------
-print("What are you doing here? Use the calculator dummy, nothing imporant here.")
+--print("What are you doing here? Use the calculator dummy, nothing imporant here.")
